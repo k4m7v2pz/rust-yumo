@@ -1,2 +1,4 @@
-.vscode
-test/compiled
+/target
+/Cargo.lock
+*.wav.tmp
+# keep existing test audio assets
