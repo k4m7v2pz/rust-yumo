@@ -1,4 +1,38 @@
+# Rust / Cargo 构建产物
 /target
+**/*.rs.bk
+
+# 锁文件（项目约定：不入仓）
 /Cargo.lock
+
+# macOS 系统文件
+.DS_Store
+._*
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志与临时文件
+logs/
+*.log
+temp/
+
+# 敏感凭据（本地配置/连接信息，严禁入库；README 反向忽略，保证 clone 后目录存在）
+secrets/*
+!secrets/README.md
+**/secrets.json
+.env
+.env.local
+.env.*.local
+
+# Agent 本地状态（记忆/图索引等私有状态，严禁入库）
+.atomcode/
+.inscode/
+
+# 测试临时文件（示例运行产生的 WAV 临时副本）
 *.wav.tmp
-# keep existing test audio assets
+
+# 测试音频素材（test/audio/*.wav|*.mp3）为库测试资源，正常跟踪
