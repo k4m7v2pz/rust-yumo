@@ -232,7 +232,7 @@ rust-yumo/
 │   └── mp3_decode.rs        # MP3 解码单元测试
 ├── test/audio/           # 测试音频文件（wav + mp3）
 ├── README.md
-└── agent.md
+└── AGENTS.md
 ```
 
 ## 九. 许可

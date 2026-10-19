@@ -184,7 +184,7 @@ rust-yumo/
 ├── tests/
 ├── test/audio/           # 测试音频文件（wav + mp3）
 ├── README.md
-└── agent.md
+└── AGENTS.md
 ```
 
 ## AI开发须知
