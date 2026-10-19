@@ -1,106 +1,87 @@
-# Yumo Audio 音频混合播放库
+# Yumo Audio 音频混合播放库（Rust）
 
 ## 项目概述
 
-这是一个轻量级的 Windows 音频混合播放库，用于解决 Win32 `waveOut` 系列 API 的冲突问题。
+这是一个跨平台（Windows / Linux / macOS）的音频混合播放库，本仓库为原始 C++/Win32 版本的 Rust 重写，API 跟随上游 `keyBonk-org/audio-player` 演进至 v0.2.0。
 
 ### 核心定位
 
-- **不同时播放**：解决原生 API 同一时间只能播放一个音频的问题
-- **灵活控制**：支持预加载、动态添加播放、静音控制等
-- **混合播放**：多个音频可以同时播放并混合
+- **同时播放**：多个音频可以同时播放并混合
+- **灵活控制**：支持预加载、动态添加播放、实例级/全局级音量、静音、暂停
+- **多格式**：WAV + MP3
 
 ### 设计目标
 
-- `addAudio` 添加音频后立即播放
-- 提供 `preloadAudio` 接口允许预先加载标准音频对象
-- 支持 `stopAll` 静音功能
+- `add_audio` 添加音频后立即播放
+- 提供 `preload_audio` 接口允许预先加载标准音频对象
+- 全局状态通过 `yumo::global`（`AudioSign`）控制（mute / stop / volume）
 - 允许同一音频的重复播放（通过播放实例追踪独立位置）
+- 播放实例通过 `AudioInstance` 句柄直接操作，播放完成经回调通知（锁外调用）
 
 ## 依赖库
 
 | 库 | 说明 |
 |----|------|
-| Windows ACM | 系统自带音频转换库（msacm32.lib） |
-| winmm | Windows 多媒体 API |
+| cpal 0.15 | 跨平台音频输出 |
+| rubato 0.15 | 纯 Rust 重采样 |
+| minimp3 0.5 | 纯 Rust MP3 解码 |
+| parking_lot 0.12 | 互斥锁 |
+| once_cell 1.19 | 单例 |
 
 ### 编译命令
 
-```powershell
-g++ -std=c++17 -I"src" -o output.exe source.cpp src/audioPlayer.cpp -lmsacm32 -lwinmm -lcomdlg32
+```sh
+cargo build          # 构建库
+cargo build --release
+cargo test           # 运行测试
+cargo run --example simple   # 运行示例
 ```
-
-### 编译中间产物
-
-编译过程中生成的中间文件应放置在以下被 `.gitignore` 忽略的路径：
-
-| 文件类型 | 存放路径 | 说明 |
-|----------|----------|------|
-| `.exe` 测试可执行文件 | `test/compiled/` | 测试程序输出 |
-
-**不要将中间产物放在项目根目录**，以免污染源码仓库。
-
-### 测试文件编译
-
-测试文件编译至：`./test/compiled/`
 
 ## API 接口
 
-### 核心接口
+公共 API 为**自由函数层 + `AudioInstance` 句柄 + 全局信号**（`AudioPool` 单例已隐藏为内部引擎）。
 
-| 接口 | 说明 |
+### 全局加载 / 播放
+
+| 函数 | 说明 |
 |------|------|
-| `AudioPool::getInstance()` | 获取单例实例 |
-| `preloadAudio(filename, ready)` | 异步预加载音频文件 |
-| `addAudio(preloadedId)` | 添加预加载音频并立即播放 |
-| `addAudio(filename)` | 简化用法：异步加载并播放 |
-| `stopAll()` | 停止所有播放（挂起） |
-| `resume()` | 恢复播放 |
+| `preload_audio(filename, ready)` | 异步预加载 WAV/MP3，返回预加载 ID |
+| `add_audio(preloaded_id, volume)` | 添加预加载音频并立即播放，返回 `AudioInstance` |
+| `add_audio_file(filename, volume, instance_out, ready_out)` | 便利接口：异步加载 + 播放 |
+| `regain(instance_id)` | 按 ID 重新获取播放实例（不存在返回 `None`） |
+| `remove_preloaded_audio(preloaded_id)` | 移除预加载音频对象 |
+| `get_preloaded_count()` / `get_playing_count()` | 预加载数量 / 播放实例数量 |
+| `reset_all()` / `remove(instance_id)` | 重置全部位置 / 移除指定实例 |
+| `register_playback_finished_callback(cb)` / `unregister_playback_finished_callback()` | 播放完成回调（锁外调用） |
 
-### 查询接口
+### `AudioInstance` 方法
 
-| 接口 | 说明 |
-|------|------|
-| `getPreloadedCount()` | 获取预加载音频数量 |
-| `getPlayingCount()` | 获取当前播放实例数量 |
-| `isPlaying(instanceId)` | 检查播放实例是否正在播放 |
+`id()` / `is_playing()` / `active()` / `position()` / `set_position(n)` / `volume()` / `set_volume(v)` / `stopped()` / `set_stopped(b)` / `muted()` / `set_muted(b)` / `remove()`
 
-### 控制接口
+### 全局信号 `yumo::global`（`AudioSign`）
 
-| 接口 | 说明 |
-|------|------|
-| `setVolume(instanceId, volume)` | 设置播放实例音量 |
-| `setMuted(muted)` | 设置全局静音状态 |
-| `resetAll()` | 重置所有播放实例位置到开头 |
+`set_mute(b)` / `muted()` / `set_stop(b)` / `stopped()` / `set_volume(v)` / `volume()`
 
 ## 数据结构
 
 ### PreloadedAudio
 
-存储共享的音频数据，同一个预加载音频可创建多个播放实例。
+存储共享的、已重采样的音频数据，同一个预加载音频可创建多个播放实例。
 
-```cpp
-struct PreloadedAudio {
-    StandardWavInfo data;  // 重采样后的音频数据（44.1kHz, 双声道, 16位）
-};
+```rust
+pub struct PreloadedAudio {
+    pub data: StandardWavInfo,           // 44.1kHz 双声道 16bit 交错 PCM
+    pub marked_for_removal: AtomicBool,
+}
 ```
 
-### PlayInstance
+### AudioInstance
 
-每次 `addAudio` 创建，追踪独立的播放位置。
-
-```cpp
-struct PlayInstance {
-    PreloadedAudio* source;  // 指向共享的预加载音频数据
-    size_t position;         // 当前播放位置（样本索引）
-    float volume;            // 音量（0.0-1.0）
-    bool active;             // 是否激活播放
-};
-```
+轻量实例句柄（只含 ID），通过 `add_audio` / `regain` 获得；实例被回收后对其操作返回 `InvalidID`。
 
 ### StandardWavInfo
 
-标准音频格式：`std::vector<int16_t>` - 44.1kHz, 双声道, 16位 PCM
+标准音频格式：`Vec<i16>` — 44.1kHz, 双声道, 16-bit 交错 PCM。
 
 ## 核心实现
 
@@ -111,122 +92,101 @@ struct PlayInstance {
 | 采样率 | 44.1kHz |
 | 声道数 | 双声道 |
 | 位深度 | 16位 |
-| 缓冲区大小 | 8820 样本（100ms） |
 
-### 双缓冲技术
+### 音频输出线程（cpal）
 
-使用两个音频缓冲区交替播放，避免音频断续：
+由于 cpal 的 `Stream` 在部分平台（如 macOS CoreAudio）上不是 `Send`/`Sync`，把 `Stream` 交给专用音频线程持有；池主状态（`PoolInner`）用 `parking_lot::Mutex` 保护。输出流按设备支持自适应采样格式（f32/i16/u16/f64）与声道数；44.1kHz 不可用时做线性插值重采样。
 
-1. `playAll()` 或首次 `addAudio` 时预先准备2个缓冲区
-2. `waveOutCallback` 在缓冲区播放完成后准备下一个缓冲区
-3. 保证音频设备始终有数据可播放
+### 混音回调（四阶段）
+
+1. 加锁快照（全局状态 + 实例数据）
+2. 无锁混音（含全局音量 × 实例音量，i16 饱和相加）
+3. 加锁提交（推进位置、回收完成实例、清理待删除预加载对象）
+4. **锁外通知**播放完成回调（对齐上游死锁修复 `38d5433`）
 
 ### 异步加载
 
-`preloadAudio` 使用后台线程异步加载，不阻塞音频播放：
-
-1. 主线程预留位置并返回 ID
-2. 后台线程加载 WAV 文件并使用 Windows ACM 重采样
-3. 通过 `std::atomic<bool>` 标记加载完成状态
-4. `addAudio(preloadedId)` 检查数据就绪后创建播放实例
-
-### Windows ACM 重采样
-
-使用 Windows ACM API 进行音频格式转换：
-
-1. `acmStreamOpen` - 打开转换流
-2. `acmStreamSize` - 计算目标缓冲区大小
-3. `acmStreamPrepareHeader` - 准备转换头
-4. `acmStreamConvert` - 执行转换
-5. `acmStreamClose` - 关闭转换流
-
-### 线程安全
-
-- 使用 `std::mutex` 保护共享数据
-- `std::atomic<bool>` 用于跨线程状态同步
-- 使用 `std::unique_ptr` 管理动态分配的预加载音频数据，避免 vector 扩容导致的悬空指针
-- 所有公开接口都是线程安全的
+`preload_audio` 后台线程按扩展名分派（`.mp3/.mp2/.mp1` → minimp3 解码，其余 → WAV 解析），经 `rubato` 重采样到标准格式，通过 `Arc<ReadySign>` 标记就绪。
 
 ## 使用示例
 
 ### 简化用法（快速播放）
 
-```cpp
-AudioPool& pool = AudioPool::getInstance();
-pool.addAudio(L"test.wav");  // 异步加载，立即返回
-pool.addAudio(L"test2.wav");  // 混合播放
+```rust
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use yumo::{add_audio_file, AudioInstance, ReadySign};
+
+let ready = Arc::new(ReadySign::new(false));
+let inst: Arc<Mutex<Option<AudioInstance>>> = Arc::new(Mutex::new(None));
+add_audio_file("test.wav", 1.0, Some(&inst), Some(&ready));
+while !ready.load(Ordering::SeqCst) {
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
 ```
 
 ### 标准用法（预加载 + 控制）
 
-```cpp
-AudioPool& pool = AudioPool::getInstance();
-std::atomic<bool> ready(false);
+```rust
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use yumo::{add_audio, preload_audio, ReadySign};
 
-// 预加载
-size_t id1 = pool.preloadAudio(L"test.wav", ready);
-while (!ready.load()) Sleep(10);
-
-// 添加播放
-size_t instanceId = pool.addAudio(id1);
-pool.setVolume(instanceId, 0.5f);
-
-// 停止
-pool.stopAll();
-
-// 恢复
-pool.resume();
+let ready = Arc::new(ReadySign::new(false));
+let id = preload_audio("test.mp3", Some(&ready)).unwrap();
+while !ready.load(Ordering::SeqCst) {
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
+let inst = add_audio(id, 0.5).unwrap();
+inst.set_volume(0.8).unwrap();
+yumo::global.set_volume(0.6);
+yumo::global.set_stop(true);   // 暂停
+yumo::global.set_stop(false);  // 恢复
 ```
 
 ## 注意事项
 
-1. **路径问题**：使用相对路径时注意工作目录，测试程序从 `test/compiled/` 运行
-2. **音频播放完毕**：播放实例不会自动清理，需手动 `stopAll()`
-3. **设备状态**：`stopAll()` 不会关闭音频设备，只是停止并重置位置
+1. **路径问题**：示例使用相对路径（`test/audio/*.wav|*.mp3`），需从 crate 根目录运行 `cargo run --example xxx`
+2. **音频播放完毕**：实例播完后自动回收（ID 可复用），通过播放完成回调获知
+3. **设备状态**：实例全部播完后音频线程自动停止并释放流，再次 `add_audio` 会重新打开
 4. **内存管理**：音频数据由库管理，调用者无需释放
-5. **停止与恢复**：`stopAll()` 后需要调用 `resume()` 才能重新播放
+5. **无效 ID**：实例被回收后继续操作返回 `ExceptionType::InvalidID`
 
-## 测试文件
+## 测试
 
-| 文件 | 说明 |
+```sh
+cargo test
+```
+
+| 测试文件 | 说明 |
 |------|------|
-| `test/1_readAudioInfo.cpp` | WAV 文件信息读取测试 |
-| `test/2_resample_test.cpp` | 音频重采样测试 |
-| `test/3_audio_pool_test.cpp` | addAudio 字符串版本测试 |
-| `test/4_audio_mix_test.cpp` | 预加载 + 延迟添加测试 |
-| `test/5_simple_test.cpp` | 单音频播放测试 |
-| `test/6_play_control_test.cpp` | 播放控制测试 |
+| `tests/wav_and_resample.rs` | WAV 解析 / 重采样 / 格式转换（9 项） |
+| `tests/mp3_decode.rs` | MP3 解码与标准格式转换（2 项，嵌入测试素材） |
 
 ## 文件结构
 
 ```
-audio-player/
+rust-yumo/
+├── Cargo.toml
 ├── src/
-│   ├── audioPlayer.hpp    # 头文件
-│   └── audioPlayer.cpp    # 实现
-├── test/
-│   ├── audio/             # 测试音频文件
-│   ├── compiled/          # 编译输出目录
-│   ├── build_manager.py   # 编译管理脚本
-│   └── *.cpp              # 测试源文件
-├── README.md              # 项目说明
-└── agent.md               # 本文档
+│   ├── lib.rs            # 库入口与常量
+│   ├── error.rs          # Exception / ExceptionType
+│   ├── wav.rs            # WAV 解析
+│   ├── mp3.rs            # MP3 解码（minimp3）
+│   ├── resample.rs       # 重采样与格式转换
+│   └── pool.rs           # 音频池引擎 + 公共 API
+├── examples/
+│   ├── simple.rs         # 单音频播放（对应上游 test/5）
+│   ├── audio_pool.rs     # 便利接口测试（对应上游 test/3）
+│   ├── audio_mix.rs      # 混合播放测试（对应上游 test/4）
+│   ├── play_control.rs   # 播放控制测试（对应上游 test/6）
+│   └── mp3.rs            # MP3 播放测试（对应上游 test/8）
+├── tests/
+├── test/audio/           # 测试音频文件（wav + mp3）
+├── README.md
+└── agent.md
 ```
 
 ## AI开发须知
 
-每次修改完库源码，编译对应的测试文件到 compile 路径下，以便用户检测，本要求在库提供一个建议的测试文件编译方案前永久生效
-
-### 编译管理脚本
-
-使用 `build_manager.py` 脚本编译测试文件：
-
-```powershell
-cd test
-python build_manager.py
-```
-
-脚本支持：
-- 按序号选择编译文件（如 `1 3 4-6`）
-- `all` 选项编译全部测试文件
-- 自动输出到 `test/compiled/` 目录
+每次修改完库源码，运行 `cargo build --examples` 与 `cargo test` 确认全部通过后再提交；示例需要真实音频设备，无设备环境下只验证库与单元测试。
