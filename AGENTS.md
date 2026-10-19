@@ -190,3 +190,27 @@ rust-yumo/
 ## AI开发须知
 
 每次修改完库源码，运行 `cargo build --examples` 与 `cargo test` 确认全部通过后再提交；示例需要真实音频设备，无设备环境下只验证库与单元测试。
+
+## 提交约定（对齐 xtl-toolchain/AGENTS.md）
+
+### 提交前防泄漏守卫（硬约束）
+
+进入 git 的内容默认互联网可见（公开仓库直接可见）。**禁止提交**：私钥/token/密码、个人邮箱、真实姓名、私人服务器地址、代理端口（HTTP/SOCKS 复用端口）、内部 IP、SSH 口令、VPS/VM 连接信息。
+
+- 敏感凭据与连接信息一律不入 commit/issue/PR/公开文档；需本地保存时放入已被 `.gitignore` 的目录（如 `secrets/`）。
+- 文档里举例远端/邮箱/端口一律用占位符：`<example@example.com>`、`<proxy-port>`、`<ssh-port>`、`<host>`。
+- **提交前核对流程（不得跳过）**：
+  1. `git add` 后先 `git diff --cached --name-only` 确认暂存区文件清单，无 `secrets/`、`*.pem`、`id_rsa`、`id_ed25519`、`*.key`、`credentials` 等；
+  2. `git diff --cached` 扫内容，发现真实 IP / 端口 / 邮箱 / token → `git restore --staged <file>` 摘出，替换为占位符或删除后重新 `git add`；
+  3. 确认无泄漏再 `git commit`。
+
+### 提交小尾巴（如实标注，禁止编造）
+
+issue/PR/追评小尾巴如实标注人的参与程度，**禁止把「批准」写成「审阅/查看」**：
+
+- 仅当人类**实际查看过**内容（描述/代码）才写"已查看/已审阅"。
+- 人类仅授权、未逐字审阅 → 只写"批准"，档位按「是否理解（能否接住）」划分：
+  - 已理解 → `人类已在Agent对话中批准提交（已理解）`
+  - 未能完全理解（如正文表格未接住）→ `人类已在Agent对话中批准提交（未能完全理解，可附具体）`
+- 末尾如实标注提交方式与提交者：`提交方式：Personal access tokens (classic)｜提交者：豆包工作 Mac版`；模型/推理强度可选（AI 知道才写）。
+- 已发内容的小尾巴不改。
