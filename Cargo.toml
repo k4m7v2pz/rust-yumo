@@ -3,7 +3,7 @@ name = "yumo-audio"
 version = "0.2.0"
 edition = "2021"
 authors = ["yumo XiaoDi"]
-license = "MIT"
+license = "WTFPL"
 description = "Cross-platform audio mixing playback library (Rust port of Yumo Audio, follows upstream v0.2.0)"
 repository = "https://github.com/xiaoditx/rust-yumo"
 

@@ -1,10 +1,11 @@
 # Yumo Audio (Rust)
 
-Yumo Audio 是一个音频混合播放库，本仓库为其 Rust 跨平台重写版本，API 跟随上游 C++ 仓库演进至 v0.2.0。
+本仓库是一个**用于体验 AI 编程**的跨语言重写项目：把上游 C++/Win32 版 [`keyBonk-org/audio-player`](https://github.com/keyBonk-org/audio-player)（WTFPL）重写为 Rust。
 
-原始 C++/Win32 版本仅支持 Windows（依赖 `waveOut*` 与 Windows ACM）。本 Rust 版本通过 [`cpal`](https://crates.io/crates/cpal)（音频输出）、[`rubato`](https://crates.io/crates/rubato)（重采样）和 [`minimp3`](https://crates.io/crates/minimp3)（MP3 解码）实现，**支持 Windows / Linux / macOS**。
-
-> 90% 由 vibe coding 生成，请谨慎使用。
+- 重写目的仅为体验 AI 生成/重构代码与提交过程，不是真实的库交付
+- **未进行测试**：仅编写了少量用于验证编译与管线的基础单元测试，未经充分验证
+- 作者私下也不使用它
+- 上游仍在持续更新，本重写仅在特定时点对齐上游 v0.2.0 接口，未长期跟进
 
 ## 一. 兼容性
 
@@ -236,4 +237,4 @@ rust-yumo/
 
 ## 九. 许可
 
-MIT（沿用原仓库）。
+WTFPL（与上游 [`keyBonk-org/audio-player`](https://github.com/keyBonk-org/audio-player) 一致，见 `LICENSE`）。
