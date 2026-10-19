@@ -193,6 +193,10 @@ rust-yumo/
 
 ## 提交约定（对齐 xtl-toolchain/AGENTS.md）
 
+### 提交尾部 Co-Authored-By
+
+提交信息末尾用 trailer（空行隔开）`Co-Authored-By`，名字填写**实际调用工具、执行本次提交的模型/Agent**（不是写代码的模型，二者可能不同——如强力模型写代码、切小模型来提交）；不知道实际提交者则该名字不写。`noreply@` 域名无对应则不写域名只留名字。格式示例：`Co-Authored-By: <实际提交的Agent名> <noreply@<对应域名>>`。
+
 ### 提交前防泄漏守卫（硬约束）
 
 进入 git 的内容默认互联网可见（公开仓库直接可见）。**禁止提交**：私钥/token/密码、个人邮箱、真实姓名、私人服务器地址、代理端口（HTTP/SOCKS 复用端口）、内部 IP、SSH 口令、VPS/VM 连接信息。
