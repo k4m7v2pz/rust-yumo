@@ -1,10 +1,10 @@
 [package]
 name = "yumo-audio"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["yumo XiaoDi"]
 license = "MIT"
-description = "Cross-platform audio mixing playback library (Rust port of Yumo Audio)"
+description = "Cross-platform audio mixing playback library (Rust port of Yumo Audio, follows upstream v0.2.0)"
 repository = "https://github.com/xiaoditx/rust-yumo"
 
 [lib]
@@ -16,6 +16,7 @@ cpal = "0.15"
 rubato = "0.15"
 parking_lot = "0.12"
 once_cell = "1.19"
+minimp3 = "0.5"
 
 [dev-dependencies]
  inquire = { version = "0.7", default-features = false, features = ["crossterm"] }
@@ -35,6 +36,10 @@ path = "examples/audio_mix.rs"
 [[example]]
 name = "play_control"
 path = "examples/play_control.rs"
+
+[[example]]
+name = "mp3"
+path = "examples/mp3.rs"
 
 [profile.release]
 opt-level = 3

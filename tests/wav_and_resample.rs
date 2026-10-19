@@ -93,7 +93,7 @@ fn converts_16bit_stereo_44100_passthrough() {
     let frames = 200;
     let dir = tempdir();
     let p = dir.join("s.wav");
-    write_wav(&p, 44100, 2, 16, frames, |f, ch| {
+    write_wav(&p, 44100, 2, 16, frames, |_f, ch| {
         // L=+10000, R=-10000, constant
         if ch == 0 { 10000 } else { -10000 }
     });

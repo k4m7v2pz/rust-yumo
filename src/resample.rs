@@ -74,8 +74,48 @@ pub fn convert_to_standard(wav: &WavInfo) -> Result<StandardWavInfo> {
         return Err(Exception::new(ExceptionType::InvalidInput, "WAV文件格式无效"));
     }
 
-    let (mut planar, src_channels) = decode_to_planar_f64(wav)?;
+    let (planar, src_channels) = decode_to_planar_f64(wav)?;
+    convert_planar_to_standard(wav.sample_rate, src_channels, planar)
+}
 
+/// Convert arbitrary interleaved i16 PCM (as produced by the MP3 decoder) into
+/// the canonical `StandardWavInfo` form (44.1kHz stereo interleaved i16).
+pub fn convert_pcm_to_standard(
+    sample_rate: u32,
+    channels: u16,
+    interleaved: &[i16],
+) -> Result<StandardWavInfo> {
+    if channels == 0 {
+        return Err(Exception::new(ExceptionType::InvalidData, "声道数为零"));
+    }
+    if sample_rate == 0 {
+        return Err(Exception::new(ExceptionType::InvalidData, "采样率为零"));
+    }
+    if interleaved.len() % channels as usize != 0 {
+        return Err(Exception::new(
+            ExceptionType::InvalidData,
+            "交织PCM数据长度与声道数不匹配",
+        ));
+    }
+
+    let frames = interleaved.len() / channels as usize;
+    let mut planar: Vec<Vec<f64>> = (0..channels as usize).map(|_| Vec::with_capacity(frames)).collect();
+    for f in 0..frames {
+        for ch in 0..channels as usize {
+            let s = interleaved[f * channels as usize + ch];
+            planar[ch].push(s as f64 / 32768.0);
+        }
+    }
+    convert_planar_to_standard(sample_rate, channels, planar)
+}
+
+/// Shared tail of both conversion paths: channel mapping, resampling to
+/// `TARGET_SAMPLE_RATE` and interleaving into `i16`.
+fn convert_planar_to_standard(
+    src_rate: u32,
+    src_channels: u16,
+    mut planar: Vec<Vec<f64>>,
+) -> Result<StandardWavInfo> {
     // --- Channel conversion to TARGET_CHANNELS ---
     if src_channels != TARGET_CHANNELS {
         if src_channels == 1 && TARGET_CHANNELS == 2 {
@@ -104,8 +144,8 @@ pub fn convert_to_standard(wav: &WavInfo) -> Result<StandardWavInfo> {
     }
 
     // --- Resampling to TARGET_SAMPLE_RATE ---
-    if wav.sample_rate != TARGET_SAMPLE_RATE {
-        let ratio = TARGET_SAMPLE_RATE as f64 / wav.sample_rate as f64;
+    if src_rate != TARGET_SAMPLE_RATE {
+        let ratio = TARGET_SAMPLE_RATE as f64 / src_rate as f64;
         let chunk_in = planar[0].len();
         // Pad with enough input frames for the resampler's filter latency.
         let params = SincInterpolationParameters {

@@ -16,12 +16,19 @@ pub enum ExceptionType {
     FileReadError,
     FileWriteError,
     FileCloseError,
+    FileCorrupted,
     FileError,
 
     // Parameter / state errors
     InvalidInput,
     InvalidFormat,
+    InvalidID,
+    InvalidData,
     InvalidState,
+
+    // Audio playback & decoding errors
+    PlaybackError,
+    DecodeError,
 
     // Memory errors
     OutOfMemory,
@@ -40,10 +47,15 @@ impl fmt::Display for ExceptionType {
             ExceptionType::FileReadError => "file read error",
             ExceptionType::FileWriteError => "file write error",
             ExceptionType::FileCloseError => "file close error",
+            ExceptionType::FileCorrupted => "file corrupted",
             ExceptionType::FileError => "file error",
             ExceptionType::InvalidInput => "invalid input",
             ExceptionType::InvalidFormat => "invalid format",
+            ExceptionType::InvalidID => "invalid id",
+            ExceptionType::InvalidData => "invalid data",
             ExceptionType::InvalidState => "invalid state",
+            ExceptionType::PlaybackError => "playback error",
+            ExceptionType::DecodeError => "decode error",
             ExceptionType::OutOfMemory => "out of memory",
             ExceptionType::MemoryError => "memory error",
             ExceptionType::CustomizedError => "customized error",
